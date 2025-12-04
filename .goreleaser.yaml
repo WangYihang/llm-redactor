@@ -91,6 +91,37 @@ changelog:
   # Disabled when using 'github-native'.
   abbrev: -1
 
+  # Group commits messages by given regex and title.
+  # Order value defines the order of the groups.
+  # Providing no regex means all commits will be grouped under the default group.
+  #
+  # Matches are performed against the first line of the commit message only,
+  # prefixed with the commit SHA1, usually in the form of
+  # `<abbrev-commit>[:] <title-commit>`.
+  # Regex use RE2 syntax as defined here: https://github.com/google/re2/wiki/Syntax.
+  #
+  # Disabled when using 'github-native'.
+  groups:
+    - title: Features
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: "Bug fixes"
+      regexp: '^.*?bug(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: "CI"
+      regexp: '^.*?ci(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: "Docs"
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: "Refactor"
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: "Style"
+      regexp: '^.*?style(\([[:word:]]+\))??!?:.+$'
+      order: 5
+    - title: Others
+      order: 999
 
   # Further filter changelog entries.
   #
