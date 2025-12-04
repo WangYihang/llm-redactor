@@ -33,64 +33,11 @@ archives:
     format_overrides:
       - goos: windows
         formats: [zip]
-
 changelog:
-  # Changelog generation implementation to use.
-  #
-  # Valid options are:
-  # - `git`: uses `git log`;
-  # - `github`: uses the compare GitHub API, appending the author username to the changelog.
-  # - `gitlab`: uses the compare GitLab API, appending the author name and email to the changelog (requires a personal access token).
-  # - `gitea`: uses the compare Gitea API, appending the author username to the changelog.
-  # - `github-native`: uses the GitHub release notes generation API, disables groups, sort, and any further formatting features.
-  #
-  # Default: 'git'.
   use: github
-
-  # Format to use for commit formatting.
-  #
-  # Templates: allowed.
-  #
-  # Default:
-  #    if 'git': '{{ .SHA }} {{ .Message }}'
-  #   otherwise: '{{ .SHA }}: {{ .Message }} ({{ with .AuthorUsername }}@{{ . }}{{ else }}{{ .AuthorName }} <{{ .AuthorEmail }}>{{ end }})'.
-  #
-  # Extra template fields:
-  # - `SHA`: the commit SHA1
-  # - `Message`: the first line of the commit message, otherwise known as commit subject
-  # - `AuthorName`: the author full name (considers mailmap if 'git')
-  # - `AuthorEmail`: the author email (considers mailmap if 'git')
-  # - `AuthorUsername`: github/gitlab/gitea username - not available if 'git'
-  #
-  # Usage with 'git': Since: v2.8.
-  format: "{{.SHA}}: {{.Message}} (@{{.AuthorUsername}})"
-
-  # Sorts the changelog by the commit's messages.
-  # Could either be asc, desc or empty
-  # Empty means 'no sorting', it'll use the output of `git log` as is.
-  #
-  # Disabled when using 'github-native'.
+  abbrev: 8
+  format: '{{.SHA}}: {{.Message}} ({{with .AuthorUsername}}@{{.}}{{else}}{{.AuthorName}}{{end}})'
   sort: asc
-
-  # Max commit hash length to use in the changelog.
-  #
-  # 0: use whatever the changelog implementation gives you
-  # -1: remove the commit hash from the changelog
-  # any other number: max length.
-  #
-  # Disabled when using 'github-native'.
-  abbrev: 0
-
-  # Group commits messages by given regex and title.
-  # Order value defines the order of the groups.
-  # Providing no regex means all commits will be grouped under the default group.
-  #
-  # Matches are performed against the first line of the commit message only,
-  # prefixed with the commit SHA1, usually in the form of
-  # `<abbrev-commit>[:] <title-commit>`.
-  # Regex use RE2 syntax as defined here: https://github.com/google/re2/wiki/Syntax.
-  #
-  # Disabled when using 'github-native'.
   groups:
     - title: Features
       regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
@@ -98,38 +45,11 @@ changelog:
     - title: "Bug fixes"
       regexp: '^.*?bug(\([[:word:]]+\))??!?:.+$'
       order: 1
-    - title: "CI"
-      regexp: '^.*?ci(\([[:word:]]+\))??!?:.+$'
-      order: 2
-    - title: "Docs"
-      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
-      order: 3
-    - title: "Refactor"
-      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
-      order: 4
-    - title: "Style"
-      regexp: '^.*?style(\([[:word:]]+\))??!?:.+$'
-      order: 5
     - title: Others
       order: 999
-
-  # Further filter changelog entries.
-  #
-  # Disabled when using 'github-native'.
   filters:
-    # Commit messages matching the regexp listed here will be removed from
-    # the changelog
-    #
-    # Matches are performed against the first line of the commit message only.
     exclude:
       - typo
-
-    # Commit messages matching the regexp listed here will be the only ones
-    # added to the changelog
-    #
-    # If include is not-empty, exclude will be ignored.
-    #
-    # Matches are performed against the first line of the commit message only.
     include:
       - "^feat:"
 
