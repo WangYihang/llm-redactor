@@ -82,6 +82,15 @@ func main() {
 					}
 				}
 			}
+
+			arr := zerolog.Arr()
+			for k, vv := range h {
+				for _, v := range vv {
+					arr.Dict(zerolog.Dict().Str("name", k).Str("value", v))
+				}
+			}
+			e.Array("headers", arr)
+
 			if json.Valid(b) {
 				e.RawJSON("body", b)
 			} else {
