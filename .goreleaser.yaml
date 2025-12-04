@@ -42,6 +42,9 @@ checksum:
   name_template: "{{ .ProjectName }}_checksums.txt"
   algorithm: sha256
 
+release:
+  mode: replace
+
 report_sizes: true
 
 dockers_v2:
