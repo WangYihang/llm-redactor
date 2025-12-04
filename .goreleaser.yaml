@@ -79,7 +79,7 @@ changelog:
   # any other number: max length.
   #
   # Disabled when using 'github-native'.
-  abbrev: -1
+  abbrev: 0
 
   # Group commits messages by given regex and title.
   # Order value defines the order of the groups.
@@ -122,9 +122,7 @@ changelog:
     #
     # Matches are performed against the first line of the commit message only.
     exclude:
-      - "^docs:"
       - typo
-      - (?i)foo
 
     # Commit messages matching the regexp listed here will be the only ones
     # added to the changelog
