@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httputil"
+	"net/url"
 
-	"github.com/WangYihang/http-grab/pkg/model"
 	"github.com/alecthomas/kong"
 	"github.com/rs/zerolog"
 	"github.com/wangyihang/llm-prism/pkg/llms/providers"
-	"github.com/wangyihang/llm-prism/pkg/logging"
-	"github.com/wangyihang/llm-prism/pkg/version"
+	"github.com/wangyihang/llm-prism/pkg/utils/logging"
+	"github.com/wangyihang/llm-prism/pkg/utils/version"
 )
 
 type CLI struct {
@@ -55,33 +55,24 @@ func main() {
 }
 
 func runProxy(logger zerolog.Logger, apiURL, apiKey, host string, port int) {
-	deepseekProvider := providers.NewDeepseekProvider(apiURL, apiKey)
-	proxy := httputil.NewSingleHostReverseProxy(deepseekProvider.Target())
+	baseURL, err := url.Parse(apiURL)
+	if err != nil {
+		logger.Error().Err(err).Msg("failed to parse API URL")
+		return
+	}
+	deepseekProvider := providers.NewDeepseekProvider(baseURL, apiKey)
+	proxy := httputil.NewSingleHostReverseProxy(deepseekProvider.BaseURL)
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
 		originalDirector(req)
-		req = deepseekProvider.Director(req)
-		httpRequest, err := model.NewHTTPRequest(req)
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to create HTTP request model")
-			return
-		}
-		logger.Info().Interface("request", httpRequest).Msg("incoming request")
+		deepseekProvider.Director(req)
 	}
 	proxy.ModifyResponse = func(resp *http.Response) error {
-		dump, _ := httputil.DumpResponse(resp, true)
-		logger.Debug().Str("response_dump", string(dump)).Msg("response dump")
-		httpResponse, err := model.NewHTTPResponse(resp)
-		if err != nil {
-			logger.Error().Err(err).Msg("failed to create HTTP response model")
-			return nil
-		}
-		logger.Info().Interface("response", httpResponse).Msg("outgoing response")
 		return nil
 	}
 	addr := fmt.Sprintf("%s:%d", host, port)
 	logger.Info().Str("address", addr).Msg("proxy server started")
-	err := http.ListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	err = http.ListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxy.ServeHTTP(w, r)
 	}))
 	if err != nil {

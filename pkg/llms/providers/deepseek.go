@@ -6,11 +6,11 @@ import (
 )
 
 type DeepseekProvider struct {
-	BaseURL string
+	BaseURL *url.URL
 	APIKey  string
 }
 
-func NewDeepseekProvider(baseURL, apiKey string) *DeepseekProvider {
+func NewDeepseekProvider(baseURL *url.URL, apiKey string) *DeepseekProvider {
 	return &DeepseekProvider{
 		BaseURL: baseURL,
 		APIKey:  apiKey,
@@ -18,12 +18,7 @@ func NewDeepseekProvider(baseURL, apiKey string) *DeepseekProvider {
 }
 
 func (p *DeepseekProvider) Director(req *http.Request) *http.Request {
-	req.Host = p.Target().Host
+	req.Host = p.BaseURL.Host
 	req.Header.Set("Authorization", "Bearer "+p.APIKey)
 	return req
-}
-
-func (p *DeepseekProvider) Target() *url.URL {
-	target, _ := url.Parse(p.BaseURL)
-	return target
 }
