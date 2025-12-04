@@ -47,7 +47,7 @@ func (w *spy) Flush() {
 func main() {
 	var cli CLI
 	ctx := kong.Parse(&cli, kong.Name("llm-prism"), kong.UsageOnError())
-	log := logging.GetLogger(cli.LogFile)
+	logs := logging.New(cli.LogFile)
 
 	if ctx.Command() == "version" {
 		fmt.Println(version.GetVersionInfo().JSON())
@@ -61,7 +61,7 @@ func main() {
 	rp.Director = func(r *http.Request) { d(r); p.Director(r) }
 
 	addr := fmt.Sprintf("%s:%d", cli.Run.Host, cli.Run.Port)
-	log.Info().Str("addr", addr).Msg("started")
+	logs.System.Info().Str("addr", addr).Msg("started")
 
 	err := http.ListenAndServe(addr, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		t := time.Now()
@@ -77,7 +77,9 @@ func main() {
 					if d, _ := io.ReadAll(z); d != nil {
 						b = d
 					}
-					_ = z.Close()
+					if err := z.Close(); err != nil {
+						logs.System.Debug().Err(err).Msg("failed to close gzip reader")
+					}
 				}
 			}
 			if json.Valid(b) {
@@ -93,13 +95,13 @@ func main() {
 		resEvt := zerolog.Dict().Int("status", sw.code)
 		enrich(resEvt, sw.buf.Bytes(), sw.Header())
 
-		log.Info().
+		logs.Data.Info().
 			Dur("duration", time.Since(t)).
 			Dict("http", zerolog.Dict().Dict("request", reqEvt).Dict("response", resEvt)).
-			Msg("interaction")
+			Msg("")
 	}))
 
 	if err != nil {
-		log.Fatal().Err(err).Msg("failed")
+		logs.System.Fatal().Err(err).Msg("failed")
 	}
 }
