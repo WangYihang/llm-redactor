@@ -42,12 +42,24 @@ llm-prism run
 ## Integration
 
 If you use `llm-prism exec`, the following variables are injected automatically:
-- `ANTHROPIC_BASE_URL`
-- `OPENAI_BASE_URL`
-- `OPENAI_API_BASE`
-- `DEEPSEEK_BASE_URL`
+- `ANTHROPIC_BASE_URL` (Claude)
+- `GOOGLE_GEMINI_BASE_URL` (Gemini)
+- `GEMINI_API_BASE_URL` (Gemini)
+- `GEMINI_BASE_URL` (Gemini)
+- `OPENAI_BASE_URL` (OpenAI/Codex)
+- `OPENAI_API_BASE` (OpenAI/Codex)
+- `CODEX_API_BASE` (Codex)
+- `DEEPSEEK_BASE_URL` (DeepSeek)
 
 To manually connect your tool, point the base URL to `http://localhost:4000`:
+
+### Support Multiple Providers
+`llm-prism` supports different providers with their specific authentication headers:
+- `deepseek` (Default): OpenAI-compatible (`Authorization: Bearer`)
+- `kimi`: OpenAI-compatible (`Authorization: Bearer`)
+- `claude`: Anthropic-compatible (`X-API-Key`, `Anthropic-Version`)
+- `gemini`: Google-compatible (`x-goog-api-key`)
+- `openai`: OpenAI-compatible (`Authorization: Bearer`)
 
 ### Claude Code
 ```bash

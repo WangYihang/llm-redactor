@@ -45,10 +45,23 @@ func Exec(cli *config.CLI, logs *logging.Loggers) {
 	// Prepare environment variables
 	env := os.Environ()
 	proxyEnvs := map[string]string{
+		// Anthropic (Claude)
 		"ANTHROPIC_BASE_URL": proxyURL,
+
+		// OpenAI (Codex and others)
 		"OPENAI_BASE_URL":    proxyURL + "/v1",
 		"OPENAI_API_BASE":    proxyURL + "/v1",
-		"DEEPSEEK_BASE_URL":  proxyURL,
+		"OPENAI_API_BASE_URL": proxyURL + "/v1",
+		"CODEX_API_BASE":      proxyURL + "/v1",
+
+		// Google (Gemini)
+		"GOOGLE_GEMINI_BASE_URL": proxyURL,
+		"GEMINI_API_BASE_URL":    proxyURL,
+		"GEMINI_BASE_URL":        proxyURL,
+		"GOOGLE_API_BASE":        proxyURL,
+
+		// DeepSeek
+		"DEEPSEEK_BASE_URL": proxyURL,
 	}
 
 	for k, v := range proxyEnvs {

@@ -36,6 +36,25 @@ func GetProvider(name string, baseURL *url.URL, apiKey string) Provider {
 			BaseURL: baseURL,
 			APIKey:  apiKey,
 		}
+	case "claude":
+		return &ClaudeProvider{
+			BaseProvider: BaseProvider{
+				BaseURL: baseURL,
+				APIKey:  apiKey,
+			},
+		}
+	case "gemini":
+		return &GeminiProvider{
+			BaseProvider: BaseProvider{
+				BaseURL: baseURL,
+				APIKey:  apiKey,
+			},
+		}
+	case "openai":
+		return &BaseProvider{
+			BaseURL: baseURL,
+			APIKey:  apiKey,
+		}
 	default:
 		return NewBaseProvider(baseURL, apiKey)
 	}
