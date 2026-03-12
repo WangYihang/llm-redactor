@@ -53,6 +53,8 @@ type Redactor struct {
 	mu               sync.Mutex
 	eventCh          chan detectionEvent
 	done             chan struct{}
+	closeOnce        sync.Once
+	closed           atomic.Bool
 	appLogPath       string
 	trafficLogPath   string
 	detectionLogPath string
@@ -208,8 +210,11 @@ func (r *Redactor) processEvents() {
 // Close shuts down the background event processor and waits for all
 // pending detection events to be flushed.
 func (r *Redactor) Close() {
-	close(r.eventCh)
-	<-r.done
+	r.closeOnce.Do(func() {
+		r.closed.Store(true)
+		close(r.eventCh)
+		<-r.done
+	})
 }
 
 // RedactContent redacts a single string content and sends detections
@@ -236,8 +241,7 @@ func (r *Redactor) RedactContent(ctx context.Context, content string) (string, b
 			}
 
 			// Send detection event to background processor non-blocking
-			select {
-			case r.eventCh <- detectionEvent{
+			r.enqueueEvent(detectionEvent{
 				DetectorType: detector.Type(),
 				RuleID:       ruleID,
 				Description:  description,
@@ -247,16 +251,29 @@ func (r *Redactor) RedactContent(ctx context.Context, content string) (string, b
 				Host:         ctxkeys.GetString(ctx, ctxkeys.Host),
 				Path:         ctxkeys.GetString(ctx, ctxkeys.Path),
 				Method:       ctxkeys.GetString(ctx, ctxkeys.Method),
-			}:
-			default:
-				// Channel is full, effectively dropping the event metric to prioritize proxy stability
-				r.logs.Warn().Msg("Detection event channel full, dropping detection metric.")
-			}
+			})
 
 			return replacement
 		})
 	}
 	return content, anyRedacted
+}
+
+func (r *Redactor) enqueueEvent(evt detectionEvent) {
+	if r == nil || r.closed.Load() {
+		return
+	}
+	defer func() {
+		if rec := recover(); rec != nil {
+			r.logs.Warn().Msg("Detection event channel closed, dropping detection metric.")
+		}
+	}()
+	select {
+	case r.eventCh <- evt:
+	default:
+		// Channel is full, effectively dropping the event metric to prioritize proxy stability
+		r.logs.Warn().Msg("Detection event channel full, dropping detection metric.")
+	}
 }
 
 func (r *Redactor) GetStats() map[string]int64 {

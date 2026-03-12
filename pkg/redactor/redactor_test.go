@@ -129,3 +129,21 @@ func TestRedactorMask(t *testing.T) {
 		t.Errorf("Long mask failed")
 	}
 }
+
+func TestCloseIdempotent(t *testing.T) {
+	rules := []Rule{{ID: "test-secret", RawRegex: "SECRET_KEY_[0-9]{5}"}}
+	_ = rules[0].Compile()
+	r := newTestRedactor(rules, zerolog.Nop())
+
+	r.Close()
+	r.Close()
+}
+
+func TestRedactAfterCloseDoesNotPanic(t *testing.T) {
+	rules := []Rule{{ID: "test-secret", RawRegex: "SECRET_KEY_[0-9]{5}"}}
+	_ = rules[0].Compile()
+	r := newTestRedactor(rules, zerolog.Nop())
+	r.Close()
+
+	_, _ = r.RedactContent(context.Background(), "SECRET_KEY_12345")
+}
