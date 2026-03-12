@@ -18,6 +18,9 @@ import (
 )
 
 func Run(cli *config.CLI, logs *logging.Loggers) {
+	if cli.Run.ApiKey == "" {
+		logs.System.Fatal().Msg("API Key is required for the 'run' command. Use --api-key or LLM_PRISM_API_KEY environment variable.")
+	}
 	_, _, err := StartProxy(cli, logs, cli.Run.Host, cli.Run.Port, cli.Run.ApiURL, cli.Run.ApiKey, cli.Run.Provider)
 	if err != nil {
 		logs.System.Fatal().Err(err).Msg("failed to start proxy")
@@ -32,8 +35,7 @@ func StartProxy(cli *config.CLI, logs *logging.Loggers, host string, port int, a
 		logs.System.Warn().Err(err).Msg("failed to load redactor rules, skipping redaction")
 	}
 
-	// We need to pass the dynamic parameters to Setup
-	// Let's modify Setup to accept these explicitly or use a temporary config
+	// Setup local variable overrides
 	tempCLI := *cli
 	tempCLI.Run.ApiURL = apiURL
 	tempCLI.Run.ApiKey = apiKey
@@ -87,7 +89,7 @@ func StartProxy(cli *config.CLI, logs *logging.Loggers, host string, port int, a
 	logs.System.Info().Str("addr", addr).Msg("proxy started")
 
 	return addr, func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 		defer cancel()
 		_ = server.Shutdown(ctx)
 	}, nil

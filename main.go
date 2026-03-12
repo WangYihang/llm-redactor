@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/wangyihang/llm-prism/pkg/commands"
@@ -15,7 +16,7 @@ func main() {
 	ctx := kong.Parse(&cli, kong.Name("llm-prism"), kong.UsageOnError())
 	logs := logging.New(cli.LogFile, cli.DetectionLogFile)
 
-	switch ctx.Command() {
+	switch strings.Split(ctx.Command(), " ")[0] {
 	case "version":
 		fmt.Println(version.GetVersionInfo().JSON())
 	case "sync":

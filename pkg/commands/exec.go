@@ -1,17 +1,24 @@
 package commands
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"os/signal"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/wangyihang/llm-prism/pkg/config"
 	"github.com/wangyihang/llm-prism/pkg/utils/logging"
 )
 
 func Exec(cli *config.CLI, logs *logging.Loggers) {
+	if len(cli.Exec.Command) == 0 {
+		fmt.Println("Usage: llm-prism exec -- <command> [args...]")
+		os.Exit(1)
+	}
+
 	// Start the proxy
 	addr, closeProxy, err := StartProxy(cli, logs, cli.Exec.Host, cli.Exec.Port, cli.Exec.ApiURL, cli.Exec.ApiKey, cli.Exec.Provider)
 	if err != nil {
@@ -19,26 +26,18 @@ func Exec(cli *config.CLI, logs *logging.Loggers) {
 	}
 	defer closeProxy()
 
-	// Handle signals to ensure proxy is closed
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
-	go func() {
-		<-sigChan
-		closeProxy()
-		os.Exit(0)
-	}()
+	// Wait a bit for the proxy to be ready
+	time.Sleep(200 * time.Millisecond)
 
-	// Determine the proxy URL for the sub-process
+	// Determine the proxy URL
 	proxyHost := cli.Exec.Host
 	if proxyHost == "0.0.0.0" {
 		proxyHost = "127.0.0.1"
 	}
-	proxyURL := "http://" + proxyHost + ":" + os.Getenv("LLM_PRISM_PORT")
-	if os.Getenv("LLM_PRISM_PORT") == "" {
-		proxyURL = "http://" + proxyHost + ":" + strings.Split(addr, ":")[len(strings.Split(addr, ":"))-1]
-	}
+	port := strings.Split(addr, ":")[len(strings.Split(addr, ":"))-1]
+	proxyURL := fmt.Sprintf("http://%s:%s", proxyHost, port)
 
-	// Prepare environment variables for common tools
+	// Prepare environment variables
 	env := os.Environ()
 	proxyEnvs := map[string]string{
 		"ANTHROPIC_BASE_URL": proxyURL,
@@ -51,10 +50,17 @@ func Exec(cli *config.CLI, logs *logging.Loggers) {
 		env = append(env, k+"="+v)
 	}
 
-	// Execute the command
+	// Prepare the command
 	cmdName := cli.Exec.Command[0]
 	cmdArgs := cli.Exec.Command[1:]
-	cmd := exec.Command(cmdName, cmdArgs...)
+	
+	path, err := exec.LookPath(cmdName)
+	if err != nil {
+		fmt.Printf("Error: command not found: %s\n", cmdName)
+		os.Exit(127)
+	}
+
+	cmd := exec.Command(path, cmdArgs...)
 	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
@@ -62,8 +68,17 @@ func Exec(cli *config.CLI, logs *logging.Loggers) {
 
 	logs.System.Info().
 		Str("command", strings.Join(cli.Exec.Command, " ")).
-		Interface("env_injected", proxyEnvs).
-		Msg("executing command")
+		Str("proxy", proxyURL).
+		Msg("executing")
+
+	// Final check: handle signals properly
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigChan
+		closeProxy()
+		os.Exit(0)
+	}()
 
 	err = cmd.Run()
 
