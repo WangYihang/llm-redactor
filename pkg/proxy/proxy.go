@@ -28,7 +28,7 @@ func Setup(cli *config.CLI, rdr *redactor.Redactor, logs *logging.Loggers) (*htt
 	rp.Director = func(r *http.Request) {
 		d(r)
 		p.Director(r)
-		if rdr != nil && r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/v1/chat/completions") {
+		if rdr != nil && r.Method == http.MethodPost {
 			body, _ := io.ReadAll(r.Body)
 			redacted, err := rdr.RedactRequest(body, map[string]string{
 				"source": "request",

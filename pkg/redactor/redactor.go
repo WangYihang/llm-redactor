@@ -87,33 +87,39 @@ func (r *Redactor) RedactContent(content string, context map[string]string) stri
 	return content
 }
 
-// RedactRequest redacts the content of a /v1/chat/completions request body
+// RedactValue recursively traverses a JSON-compatible structure and redacts all string values
+func (r *Redactor) RedactValue(v interface{}, context map[string]string) interface{} {
+	switch val := v.(type) {
+	case string:
+		return r.RedactContent(val, context)
+	case map[string]interface{}:
+		for k, v := range val {
+			val[k] = r.RedactValue(v, context)
+		}
+		return val
+	case []interface{}:
+		for i, v := range val {
+			val[i] = r.RedactValue(v, context)
+		}
+		return val
+	default:
+		return v
+	}
+}
+
+// RedactRequest redacts all string values in a JSON request body
 func (r *Redactor) RedactRequest(body []byte, context map[string]string) ([]byte, error) {
 	if !json.Valid(body) {
 		return body, nil
 	}
 
-	var data map[string]interface{}
+	var data interface{}
 	if err := json.Unmarshal(body, &data); err != nil {
 		return body, err
 	}
 
-	messages, ok := data["messages"].([]interface{})
-	if !ok {
-		return body, nil
-	}
-
-	for _, msg := range messages {
-		m, ok := msg.(map[string]interface{})
-		if !ok {
-			continue
-		}
-		if content, ok := m["content"].(string); ok {
-			m["content"] = r.RedactContent(content, context)
-		}
-	}
-
-	return json.Marshal(data)
+	redactedData := r.RedactValue(data, context)
+	return json.Marshal(redactedData)
 }
 
 // StreamRedactor implements a sliding window redactor for SSE streams
@@ -135,27 +141,39 @@ func NewStreamRedactor(r *Redactor, windowSize int, context map[string]string) *
 	}
 }
 
-func extractContent(data map[string]interface{}) (string, map[string]interface{}, bool) {
-	choices, ok := data["choices"].([]interface{})
-	if !ok || len(choices) == 0 {
-		return "", nil, false
+func (sr *StreamRedactor) extractAndRedact(v interface{}) string {
+	switch val := v.(type) {
+	case string:
+		return sr.r.RedactContent(val, sr.context)
+	case map[string]interface{}:
+		var fullContent string
+		for k, v := range val {
+			if k == "content" || k == "text" || k == "thinking" {
+				if s, ok := v.(string); ok {
+					redacted := sr.r.RedactContent(s, sr.context)
+					val[k] = redacted
+					fullContent += redacted
+				} else {
+					fullContent += sr.extractAndRedact(v)
+				}
+			} else {
+				sr.extractAndRedact(v)
+			}
+		}
+		return fullContent
+	case []interface{}:
+		var fullContent string
+		for i, v := range val {
+			fullContent += sr.extractAndRedact(v)
+			val[i] = sr.redactRecursive(v)
+		}
+		return fullContent
 	}
+	return ""
+}
 
-	choice, ok := choices[0].(map[string]interface{})
-	if !ok {
-		return "", nil, false
-	}
-
-	delta, ok := choice["delta"].(map[string]interface{})
-	if !ok {
-		delta, ok = choice["message"].(map[string]interface{})
-	}
-	if !ok {
-		return "", nil, false
-	}
-
-	content, ok := delta["content"].(string)
-	return content, delta, ok
+func (sr *StreamRedactor) redactRecursive(v interface{}) interface{} {
+	return sr.r.RedactValue(v, sr.context)
 }
 
 // RedactSSELine processes a single "data: ..." line
@@ -174,25 +192,21 @@ func (sr *StreamRedactor) RedactSSELine(line []byte) []byte {
 		return line
 	}
 
-	content, delta, ok := extractContent(data)
-	if !ok {
+	// Use recursive extraction and redaction
+	content := sr.extractAndRedact(data)
+	if content == "" {
 		return line
 	}
 
 	sr.buffer = append(sr.buffer, []byte(content)...)
 
 	if len(sr.buffer) < sr.maxLen {
-		redacted := sr.r.RedactContent(string(sr.buffer), sr.context)
-		sr.buffer = []byte(redacted)
-		delta["content"] = ""
+		sr.r.RedactValue(data, sr.context)
+		sr.buffer = []byte(sr.r.RedactContent(string(sr.buffer), sr.context))
 	} else {
 		toFlush := len(sr.buffer) - sr.maxLen
-		flushContent := string(sr.buffer[:toFlush])
 		sr.buffer = sr.buffer[toFlush:]
-
-		redactedTotal := sr.r.RedactContent(flushContent+string(sr.buffer), sr.context)
-		delta["content"] = redactedTotal[:len(redactedTotal)-len(sr.buffer)]
-		sr.buffer = []byte(redactedTotal[len(redactedTotal)-len(sr.buffer):])
+		sr.r.RedactValue(data, sr.context)
 	}
 
 	newRawData, _ := json.Marshal(data)
