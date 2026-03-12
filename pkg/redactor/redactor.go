@@ -20,8 +20,9 @@ const (
 )
 
 type Redactor struct {
-	config *Config
-	logs   zerolog.Logger
+	config    *Config
+	logs      zerolog.Logger
+	detectors []Detector
 }
 
 func DownloadRules(path string, url string, logs zerolog.Logger) error {
@@ -94,7 +95,17 @@ func New(configPath string, logs zerolog.Logger) (*Redactor, error) {
 	}
 	config.Rules = compatibleRules
 
-	return &Redactor{config: &config, logs: logs}, nil
+	detectors := []Detector{
+		NewRegexDetector(config.Rules),
+		// Default threshold 3.5 for hex-like keys, 24 min length to avoid common variable names
+		NewEntropyDetector(3.5, 24),
+	}
+
+	return &Redactor{
+		config:    &config,
+		logs:      logs,
+		detectors: detectors,
+	}, nil
 }
 
 func mask(s string) string {
@@ -106,14 +117,8 @@ func mask(s string) string {
 
 // RedactContent redacts a single string content and logs detections
 func (r *Redactor) RedactContent(content string, context map[string]string) string {
-	for _, rule := range r.config.Rules {
-		// Simple regex replacement
-		content = rule.Regex.ReplaceAllStringFunc(content, func(match string) string {
-			// Ignore zero-length matches to prevent infinite loops or per-character redaction
-			if len(match) == 0 {
-				return match
-			}
-
+	for _, detector := range r.detectors {
+		content = detector.Redact(content, func(match, ruleID, description string) string {
 			// Check global allow list
 			for _, allow := range r.config.AllowList {
 				if match == allow {
@@ -123,8 +128,8 @@ func (r *Redactor) RedactContent(content string, context map[string]string) stri
 
 			// LOG DETECTION
 			evt := r.logs.Info().
-				Str("rule_id", rule.ID).
-				Str("description", rule.Description).
+				Str("rule_id", ruleID).
+				Str("description", description).
 				Str("masked_content", mask(match)).
 				Int("match_length", len(match))
 

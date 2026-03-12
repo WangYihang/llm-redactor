@@ -50,6 +50,7 @@ func TestRedactRequest(t *testing.T) {
 	if err := r.config.Rules[0].Compile(); err != nil {
 		t.Fatalf("Failed to compile rule: %v", err)
 	}
+	r.detectors = []Detector{NewRegexDetector(r.config.Rules)}
 
 	reqBody := `{"messages": [{"role": "user", "content": "The key is SECRET_KEY_12345"}]}`
 	redacted, _ := r.RedactRequest([]byte(reqBody), nil)
@@ -71,6 +72,7 @@ func TestStreamRedactorSlidingWindow(t *testing.T) {
 	if err := r.config.Rules[0].Compile(); err != nil {
 		t.Fatalf("Failed to compile rule: %v", err)
 	}
+	r.detectors = []Detector{NewRegexDetector(r.config.Rules)}
 
 	// 使用较大窗口以容纳完整占位符
 	sr := NewStreamRedactor(r, 30, nil)
@@ -106,6 +108,7 @@ func TestDetectionLogging(t *testing.T) {
 	if err := r.config.Rules[0].Compile(); err != nil {
 		t.Fatalf("Failed to compile rule: %v", err)
 	}
+	r.detectors = []Detector{NewRegexDetector(r.config.Rules)}
 
 	r.RedactContent("Text HIT_ME text", map[string]string{"ctx_key": "ctx_val"})
 
@@ -125,6 +128,7 @@ func TestStreamRedactorEdgeCases(t *testing.T) {
 		logs: zerolog.Nop(),
 	}
 	_ = r.config.Rules[0].Compile()
+	r.detectors = []Detector{NewRegexDetector(r.config.Rules)}
 
 	sr := NewStreamRedactor(r, 10, nil)
 
