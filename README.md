@@ -1,121 +1,71 @@
-# llm-prism
+# 🌈 llm-prism
 
-A lightweight, transparent reverse proxy for LLM API observability and security. It captures full HTTP request/response lifecycles while automatically redacting sensitive information like API keys and tokens.
+**The Privacy Firewall for LLMs.** Stop leaking secrets (API Keys, PII) to AI providers.
 
-> **Note**: Optimized for DeepSeek and Anthropic-style APIs, but designed to be provider-agnostic.
+`llm-prism` is a local transparent proxy that redacts sensitive information **locally** before it ever leaves your machine.
 
-## 🛡️ Privacy at a Glance
+---
 
-`llm-prism` acts as a local security barrier. Here is the difference it makes when you accidentally paste a secret into your AI chat:
-
-| Feature | 🔴 Without llm-prism (Direct) | 🟢 With llm-prism (Protected) |
+| Feature | 🔴 Direct Connection | 🟢 With llm-prism |
 | :--- | :--- | :--- |
-| **Privacy** | Secrets leave your machine | **Redacted locally** before sending |
-| **Cloud Provider Sees** | `... key is sk-7dd4...363e` | `... key is [REDACTED_SECRET]` |
-| **Security Audit** | No record of the leak | **Local log** with rule-ID & timestamp |
-| **Data Integrity** | Risks account compromise | Zero-leak guarantee |
-| **SSE Streaming** | Normal | **Filtered in real-time** (Zero-latency) |
+| **Data Privacy** | Secrets sent to Cloud | **Redacted Locally** |
+| **Provider Sees** | `key: "sk-7d...363e"` | `key: "[REDACTED]"` |
+| **Streaming** | Standard | **Real-time filtering** |
 
-### Traffic Comparison:
+---
 
-**Input Prompt (from your CLI/IDE):**
-```json
-{ "messages": [{ "role": "user", "content": "My AWS key is AKIA1234567890EXAMPLE" }] }
-```
+## 🚀 Quick Start (30s)
 
-**What the LLM Provider (Cloud) Receives:**
-- **🔴 Direct:** `{ "content": "My AWS key is AKIA1234567890EXAMPLE" }` ⚠️ **LEAKED!**
-- **🟢 Via llm-prism:** `{ "content": "My AWS key is [REDACTED_SECRET]" }` ✅ **SECURE!**
-
-## Features
-
-- **🛡️ Automatic Secret Redaction**: Automatically detects and redacts secrets (API keys, tokens, etc.) from request bodies and streaming responses using Gitleaks-compatible rules.
-- **🔄 Recursive JSON Traversal**: Deep-scans nested JSON structures (including Anthropic-style content blocks) to ensure no sensitive string escapes detection.
-- **⚡ Zero-Latency Streaming**: Wraps `http.Flusher` to ensure Server-Sent Events (SSE) are forwarded instantly without buffering delay.
-- **🔍 Faithful Capture**: Records raw payloads with automatic Gzip decompression and JSON normalization for clear logging.
-- **📊 Dual-Channel Logging**:
-  - **Data Logs (`llm-prism.jsonl`)**: Full traffic analysis for debugging and auditing.
-  - **Detection Logs (`llm-prism-detections.jsonl`)**: Dedicated security audit trail for leaked secrets.
-
-## Install
-
+### 1. Install
 ```bash
 go install github.com/wangyihang/llm-prism@latest
 ```
 
-## Usage
-
-### 1. Sync Redactor Rules
-Update your local redirection rules from the official Gitleaks repository:
+### 2. Setup
 ```bash
-llm-prism sync
+llm-prism sync  # Update redaction rules (Gitleaks compatible)
 ```
 
-### 2. Start the Proxy
+### 3. Run
 ```bash
-$ llm-prism run --help
-Usage: llm-prism run --api-key=STRING [flags]
-
-Run proxy
-
-Flags:
-  -h, --help                               Show context-sensitive help.
-      --log-file="llm-prism.jsonl"         Log file ($LLM_PRISM_LOG_FILE)
-      --detection-log-file="llm-prism-detections.jsonl"
-                                           Detection log file ($LLM_PRISM_DETECTION_LOG_FILE)
-      --redactor-rules="redactor_rules.toml"
-                                           Redactor rules file (TOML or JSON) ($LLM_PRISM_REDACTOR_RULES)
-
-      --api-url="https://api.deepseek.com/anthropic"
-                                           API URL ($LLM_PRISM_API_URL)
-      --api-key=STRING                     API Key ($LLM_PRISM_API_KEY)
-      --provider="deepseek"                Provider ($LLM_PRISM_PROVIDER)
-      --host="0.0.0.0"                     Host ($LLM_PRISM_HOST)
-      --port=4000                          Port ($LLM_PRISM_PORT)
-```
-
-#### Example: Running with DeepSeek
-```bash
-export LLM_PRISM_API_URL=https://api.deepseek.com/anthropic
-export LLM_PRISM_API_KEY=sk-your-deepseek-key
-export LLM_PRISM_PROVIDER=deepseek
+export LLM_PRISM_API_KEY=sk-your-real-key
 llm-prism run
 ```
 
-### 3. Connect your Client (e.g., Claude Code)
-Point your LLM client to the proxy:
+---
+
+## 🛠️ Integration
+
+Connect your favorite tools by changing the API Base URL:
+
+### Claude Code
 ```bash
 export ANTHROPIC_BASE_URL=http://localhost:4000
-export ANTHROPIC_AUTH_TOKEN=anything  # The proxy handles the real authentication
 claude
 ```
 
-## Security & Redaction
+### Cursor / Aider / OpenAI SDK
+Simply point your `base_url` to `http://localhost:4000`.
 
-`llm-prism` uses a recursive redaction engine that handles:
-- **Standard JSON**: Replaces sensitive strings in any field.
-- **Complex Payloads**: Supports Anthropic's `content` array of objects (multi-modal/thinking blocks).
-- **Streaming (SSE)**: Redacts secrets on-the-fly as they are streamed from the assistant.
+---
 
-### Example Detection Log
-When a secret is detected (e.g., you accidentally paste a key into a chat), it is logged to `llm-prism-detections.jsonl`:
-```json
-{
-  "level": "info",
-  "rule_id": "deepseek-api-key",
-  "description": "DeepSeek API Key",
-  "masked_content": "sk-7d...363e",
-  "match_length": 35,
-  "path": "/v1/messages",
-  "method": "POST",
-  "source": "request",
-  "time": "2026-03-12T17:22:06.190Z",
-  "message": "secret detected"
-}
-```
+## ✨ Features
 
-## Architecture
+- **🛡️ Auto-Redaction**: Detects 100+ secret types (AWS, Stripe, OpenAI, etc.).
+- **⚡ Zero Latency**: Specialized SSE engine for real-time streaming.
+- **🔍 Deep Scan**: Recursively traverses nested JSON (works with Claude's thinking blocks).
+- **📊 Local Audit**: Keeps a `llm-prism-detections.jsonl` for your own security review.
 
-- **Recursive Redactor**: A traversal engine that visits every node of a JSON tree to identify sensitive strings without breaking the JSON schema.
-- **SSE Spy**: Intercepts and modifies text/event-streams in real-time.
-- **Provider Adapters**: Normalize headers and authentication for different backends while providing a unified local interface.
+---
+
+## 📖 How it works
+
+1. **Intercept**: Sits between your CLI/IDE and the LLM API.
+2. **Sanitize**: Scans the request body against Gitleaks-compatible rules.
+3. **Redact**: Replaces any matched secrets with `[REDACTED_SECRET]`.
+4. **Forward**: Sends the "clean" request to the provider.
+
+---
+
+## License
+MIT. See `LICENSE` for details.
