@@ -111,6 +111,7 @@ func (r *Redactor) Summary() string {
 	sb.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("  • Requests Affected:      "), valStyle.Render(fmt.Sprintf("%d", len(uniqueRequests)))))
 	sb.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("  • Unique Rules Triggered: "), valStyle.Render(fmt.Sprintf("%d / %d", len(uniqueRules), len(r.config.Rules)))))
 	sb.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("  • Unique Detections:      "), valStyle.Render(fmt.Sprintf("%d", len(details)))))
+	sb.WriteString(fmt.Sprintf("%s %s\n", keyStyle.Render("  • Dropped Detections:     "), valStyle.Render(fmt.Sprintf("%d", r.DroppedEvents()))))
 
 	// Section 5: Top triggered rules
 	if len(ruleHitCount) > 0 {

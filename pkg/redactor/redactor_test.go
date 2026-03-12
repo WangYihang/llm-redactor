@@ -16,6 +16,10 @@ import (
 // newTestRedactor creates a Redactor with a running background goroutine,
 // suitable for tests. Callers must defer r.Close().
 func newTestRedactor(rules []Rule, log zerolog.Logger) *Redactor {
+	return newTestRedactorWithBuffer(rules, log, eventChannelSize, true)
+}
+
+func newTestRedactorWithBuffer(rules []Rule, log zerolog.Logger, buffer int, start bool) *Redactor {
 	var regexRules []detectors.RegexRule
 	for _, rule := range rules {
 		regexRules = append(regexRules, detectors.RegexRule{
@@ -28,10 +32,14 @@ func newTestRedactor(rules []Rule, log zerolog.Logger) *Redactor {
 		config:    &Config{Rules: rules},
 		logs:      log,
 		detectors: []detectors.Detector{detectors.NewRegexDetector(regexRules)},
-		eventCh:   make(chan detectionEvent, eventChannelSize),
+		eventCh:   make(chan detectionEvent, buffer),
 		done:      make(chan struct{}),
 	}
-	go r.processEvents()
+	if start {
+		go r.processEvents()
+	} else {
+		close(r.done)
+	}
 	return r
 }
 
@@ -146,4 +154,21 @@ func TestRedactAfterCloseDoesNotPanic(t *testing.T) {
 	r.Close()
 
 	_, _ = r.RedactContent(context.Background(), "SECRET_KEY_12345")
+	if r.DroppedEvents() == 0 {
+		t.Fatal("expected dropped events after close")
+	}
+}
+
+func TestDroppedEventsOnFullChannel(t *testing.T) {
+	rules := []Rule{{ID: "test-secret", RawRegex: "SECRET_KEY_[0-9]{5}"}}
+	_ = rules[0].Compile()
+	r := newTestRedactorWithBuffer(rules, zerolog.Nop(), 1, false)
+	defer r.Close()
+
+	_, _ = r.RedactContent(context.Background(), "SECRET_KEY_12345")
+	_, _ = r.RedactContent(context.Background(), "SECRET_KEY_12345")
+
+	if r.DroppedEvents() != 1 {
+		t.Fatalf("expected 1 dropped event, got %d", r.DroppedEvents())
+	}
 }

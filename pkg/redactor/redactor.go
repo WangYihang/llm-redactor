@@ -55,6 +55,7 @@ type Redactor struct {
 	done             chan struct{}
 	closeOnce        sync.Once
 	closed           atomic.Bool
+	droppedEvents    atomic.Int64
 	appLogPath       string
 	trafficLogPath   string
 	detectionLogPath string
@@ -261,10 +262,14 @@ func (r *Redactor) RedactContent(ctx context.Context, content string) (string, b
 
 func (r *Redactor) enqueueEvent(evt detectionEvent) {
 	if r == nil || r.closed.Load() {
+		if r != nil {
+			r.droppedEvents.Add(1)
+		}
 		return
 	}
 	defer func() {
 		if rec := recover(); rec != nil {
+			r.droppedEvents.Add(1)
 			r.logs.Warn().Msg("Detection event channel closed, dropping detection metric.")
 		}
 	}()
@@ -272,8 +277,16 @@ func (r *Redactor) enqueueEvent(evt detectionEvent) {
 	case r.eventCh <- evt:
 	default:
 		// Channel is full, effectively dropping the event metric to prioritize proxy stability
+		r.droppedEvents.Add(1)
 		r.logs.Warn().Msg("Detection event channel full, dropping detection metric.")
 	}
+}
+
+func (r *Redactor) DroppedEvents() int64 {
+	if r == nil {
+		return 0
+	}
+	return r.droppedEvents.Load()
 }
 
 func (r *Redactor) GetStats() map[string]int64 {
