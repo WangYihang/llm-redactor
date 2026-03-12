@@ -45,7 +45,7 @@ func Setup(cli *config.CLI, rdr *redactor.Redactor, logs *logging.Loggers) (*htt
 		d(r)
 		p.Director(r)
 		requestID := GetRequestID(r.Context())
-		if rdr != nil && r.Method == http.MethodPost {
+		if rdr != nil && r.Method == http.MethodPost && r.Body != nil {
 			body, _ := io.ReadAll(r.Body)
 			redacted, err := rdr.RedactRequest(body, map[string]string{
 				"request_id": requestID,

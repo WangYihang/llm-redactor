@@ -33,7 +33,9 @@ func Run(cli *config.CLI, logs *logging.Loggers) {
 		t := time.Now()
 		requestID := uuid.New().String()
 		rb := new(bytes.Buffer)
-		r.Body = io.NopCloser(io.TeeReader(r.Body, rb))
+		if r.Body != nil {
+			r.Body = io.NopCloser(io.TeeReader(r.Body, rb))
+		}
 		sw := &proxy.Spy{ResponseWriter: w, Buf: new(bytes.Buffer), Code: http.StatusOK}
 
 		// Inject request ID into context for downstream components
