@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/alecthomas/kong"
@@ -17,8 +16,19 @@ import (
 )
 
 func main() {
-	var cli config.CLI
-	ctx := kong.Parse(&cli, kong.Name("llm-redactor"), kong.UsageOnError())
+	var cli config.ExecCLI
+	kong.Parse(&cli, kong.Name("llm-redactor"), kong.UsageOnError())
+
+	if cli.Version {
+		fmt.Println(version.GetVersionInfo().JSON())
+		return
+	}
+
+	if len(cli.Command) == 0 {
+		fmt.Println("Error: command is required")
+		fmt.Println("Usage: llm-redactor [options] -- <command> [args...]")
+		os.Exit(1)
+	}
 
 	// Session Setup
 	sessionID := fmt.Sprintf("%s-%s", time.Now().Format("20060102-150405"), uuid.New().String()[:8])
@@ -41,12 +51,5 @@ func main() {
 	cli.TrafficLogFile = trafficLogPath
 	cli.DetectionLogFile = detectionLogPath
 
-	switch strings.Split(ctx.Command(), " ")[0] {
-	case "version":
-		fmt.Println(version.GetVersionInfo().JSON())
-	case "run":
-		commands.Run(&cli, logs)
-	case "exec":
-		commands.Exec(&cli, logs)
-	}
+	commands.Exec(&cli, logs)
 }

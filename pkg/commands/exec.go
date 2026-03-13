@@ -15,14 +15,14 @@ import (
 	"github.com/wangyihang/llm-redactor/pkg/utils/logging"
 )
 
-func Exec(cli *config.CLI, logs *logging.Loggers) {
-	if len(cli.Exec.Command) == 0 {
-		fmt.Println("Usage: llm-redactor exec -- <command> [args...]")
+func Exec(cli *config.ExecCLI, logs *logging.Loggers) {
+	if len(cli.Command) == 0 {
+		fmt.Println("Usage: llm-redactor -- <command> [args...]")
 		os.Exit(1)
 	}
 
 	// Start the proxy
-	rdr, addr, closeProxy, err := StartProxy(cli, logs, cli.Exec.Host, cli.Exec.Port)
+	rdr, addr, closeProxy, err := StartProxy(&cli.CommonConfig, logs, cli.Host, cli.Port)
 	if err != nil {
 		logs.System.Fatal().Err(err).Msg("failed to start proxy")
 	}
@@ -35,7 +35,7 @@ func Exec(cli *config.CLI, logs *logging.Loggers) {
 	}()
 
 	// Determine the proxy URL
-	proxyHost := cli.Exec.Host
+	proxyHost := cli.Host
 	if proxyHost == "0.0.0.0" || proxyHost == "127.0.0.1" || proxyHost == "::1" {
 		proxyHost = "localhost"
 	}
@@ -75,8 +75,8 @@ func Exec(cli *config.CLI, logs *logging.Loggers) {
 	}
 
 	// Prepare the command
-	cmdName := cli.Exec.Command[0]
-	cmdArgs := cli.Exec.Command[1:]
+	cmdName := cli.Command[0]
+	cmdArgs := cli.Command[1:]
 
 	path, err := exec.LookPath(cmdName)
 	if err != nil {
@@ -91,7 +91,7 @@ func Exec(cli *config.CLI, logs *logging.Loggers) {
 	cmd.Stdin = os.Stdin
 
 	logs.System.Info().
-		Str("command", strings.Join(cli.Exec.Command, " ")).
+		Str("command", strings.Join(cli.Command, " ")).
 		Str("proxy", proxyURL).
 		Msg("executing")
 

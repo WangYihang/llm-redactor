@@ -18,8 +18,8 @@ import (
 	"github.com/wangyihang/llm-redactor/pkg/utils/logging"
 )
 
-func Run(cli *config.CLI, logs *logging.Loggers) {
-	rdr, _, _, err := StartProxy(cli, logs, cli.Run.Host, cli.Run.Port)
+func Run(cli *config.ProxyCLI, logs *logging.Loggers) {
+	rdr, _, _, err := StartProxy(&cli.CommonConfig, logs, cli.Host, cli.Port)
 	if err != nil {
 		logs.System.Fatal().Err(err).Msg("failed to start proxy")
 	}
@@ -35,7 +35,7 @@ func Run(cli *config.CLI, logs *logging.Loggers) {
 	}
 }
 
-func StartProxy(cli *config.CLI, logs *logging.Loggers, host string, port int) (*redactor.Redactor, string, context.CancelFunc, error) {
+func StartProxy(cli *config.CommonConfig, logs *logging.Loggers, host string, port int) (*redactor.Redactor, string, context.CancelFunc, error) {
 	rdr, err := redactor.New(cli.RedactorRules, logs.System, logs.Detection)
 	if err != nil {
 		logs.System.Warn().Err(err).Msg("failed to load redactor rules, skipping redaction")
